@@ -1,0 +1,151 @@
+---
+title: "EV_kmeans"
+author: "Shanya Chaubey"
+date: "2023-02-22"
+output: html_document
+---
+
+#Using KMeans Clustering
+
+First step is to set the directory to be able to access the documents
+
+```{r setup, include=FALSE, echo = TRUE}
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\CSCI 5622 Machine Learning\\CSCI5662 Project')
+```
+
+Initial step is to load the necessary libraries
+
+```{r}
+library(cluster)
+library(factoextra)
+library(NbClust)
+library(dplyr)
+library(tidyr)
+library(stats)
+library(FactoMineR)
+library(ggplot2)
+
+
+```
+
+Next step is to load the data and ensure it's in the appropriate form for KMeans.
+
+```{r}
+data_load <- read.csv('EV_data_norm.csv')
+head(data_load)
+colnames(data_load)
+
+#making a centroid using california2020 key as the matching  to find the index of the observation (High)
+centroid1_index <- match('California2020', data_load$Key)
+centroid1_index #617
+
+#making a centroid using Illinois2020 key as the matching  to find the index of the observation (High)
+centroid2_index <- match('Illinois2020', data_load$Key)
+centroid2_index #626
+
+#making another centroid using North Dakota2020 key as the matching to find the index of the observation (LOW)
+centroid3_index <- match('North Dakota2020', data_load$Key)
+centroid3_index #647
+
+
+
+#removing labels and keeping normalized columns
+norm_kmeans_data <- data_load%>%select(c("norm_Av_temperature","norm_Percentage_pop_with_bachelors", "norm_Adults.19.25","norm_Adults.26.34","norm_Adults.35.54", "norm_EnergyC_addunit", "norm_num_jobs_tot", "norm_Median_income", "norm_GDP", "norm_Elec_price", "norm_Tot_vehicle"))
+head(norm_kmeans_data)
+
+#Saving the labels in another dataframe
+Labels <- data_load$Label
+head(Labels)
+
+Label <- Labels %>% mutate(numeric = case_when(Label == 'Low' ~ 1, Label == 'Medium' ~ 2, Label == 'High' ~3))
+
+```
+Now that the data is ready, we can try doing some discovery analysis on the appropriate number of clusters for the data. 
+
+```{r}
+methods = c("euclidean", "maximum", "manhattan", "canberra", "binary", "minkowski")
+names(methods) <- c("euclidean", "maximum", "manhattan", "canberra", "binary", "minkowski")
+
+
+for (item in methods){
+  kmeans_1 <- NbClust::NbClust(norm_kmeans_data, min.nc = 2, max.nc = 6, method = 'kmeans', distance = item)
+  print(table(kmeans_1$Best.n[1,]))
+  barplot((table(kmeans_1$Best.n[1,])), xlab = paste('number of cluster using ', item, sep = ''), cex.lab = 0.6)
+}
+
+
+
+#table(kmeans_data_new$Best.n[1,])
+
+#barplot(table(kmeans_data_new$Best.n[1,]),xlab = 'number of clusters', ylab = '', main = 'Number of Clusters')
+
+```
+
+From the above graphs, it can be seen that four is the best number of clusters for this data which is contrary to what i thought would be a good number of clusters, which was three. 
+
+Now let's use silhouette method to check the appropriate number of clusters
+
+```{r}
+fviz_nbclust(norm_kmeans_data, method = 'silhouette', k.max = 5, FUN = hcut)
+```
+Now using the elbow method which uses wss to determine the number of clusters.
+
+```{r}
+fviz_nbclust(norm_kmeans_data, method  ='wss', kmeans, diss  =get_dist(as.matrix(norm_kmeans_data),method = 'manhattan'))
+
+```
+###Applying PCS to reduce dimensionality of the data
+
+Code credit: https://towardsdatascience.com/10-tips-for-choosing-the-optimal-number-of-clusters-277e93d72d92
+
+```{r}
+PCA_result <- PCA(norm_kmeans_data, graph = FALSE)
+summary(PCA_result)
+fviz_screeplot(PCA_result, addlabels = TRUE, ylim = c(0,50))
+
+#Extract result for the variable
+var <- get_pca_var(PCA_result)
+
+#Contributions of variables to PC1
+fviz_contrib(PCA_result, choice = 'var', axes = 1, top=10)
+
+#Contributions of variables to PC2
+fviz_contrib(PCA_result, choice = 'var', axes = 2, top=10)
+
+#Control variable colors using their contribution to the principle axis
+
+fviz_pca_var(PCA_result, labelsize = 2,col.var = 'contrib', cex = 0.5, gradient.cols = c('#00AFBB', '#E7B800', '#FC4E07'), repel = TRUE)+theme_minimal()+ggtitle('Variables PCA')+theme(text = element_text(size = 10))
+```
+
+It can be seen from the figures above that Median income, electricity price and percentage of population with bachelors degree all grow together and make up for more than 80% of the variance. 
+```{r}
+PCA_2 <- prcomp(norm_kmeans_data)
+PCA_2
+
+pca_table <- tibble(proportional_cariance = PCA_2$sdev^2/sum(PCA_2$sdev^2), PC = 'PC') 
+pca_table
+
+https://rstudio-pubs-static.s3.amazonaws.com/569420_ca30064fcdc64caaa6f6b66ea3cdf9e1.html
+```
+
+
+
+```{r}
+
+kmeans_after_pca <- as.data.frame(PCA_result$)
+km2 <- kmeans(norm_kmeans_data, centers=2, ns)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

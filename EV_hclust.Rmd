@@ -1,0 +1,218 @@
+---
+title: "EV_hierarchical clustering"
+author: "Shanya Chaubey"
+date: "2023-02-22"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo = TRUE}
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\CSCI 5622 Machine Learning\\CSCI5662 Project')
+```
+###Code credit
+
+https://gatesboltonanalytics.com/?page_id=260
+geeksforgeeks
+stackoverflow
+
+
+###Loading Packages for Hierarchical clustering
+Here we will use hierarchical clustering to cluster our data.
+
+Loading the necessary libraries for hclust
+```{r}
+library(mclust)
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(dendextend)
+library(stats) #for hclust
+library(purrr)
+library(lsa)
+
+
+
+
+```
+###Loading the data for hierarchical clustering. 
+
+We need the data to be standardized for hierarchical clustering. Which means the mean should be 0 and standard deviation of 1. This can be done using the `scale` function in r. 
+Ensure that the label is removed 
+
+```{r}
+data_load <- read.csv('EV_data_norm.csv', row.names = NULL)
+head(data_load)
+colnames(data_load)
+Labels <- data_load$Label
+head(Labels)
+#Labels <- Labels %>% mutate('hclust_comp' = 
+#                    case_when(Label == 'Low' ~ 1,
+#                              Label == 'Medium' ~ 2,
+#                              Label == 'High' ~ 3))
+
+data_subset <- data_load %>% select(c('Percentage_pop_with_bachelors',"Adults.19.25", "Adults.26.34", "Adults.35.54", "EnergyC_addunit", "num_jobs_tot" , "Av_temperature", "Median_income" , "GDP", "Elec_price", "Tot_vehicle" ))
+head(data_subset)
+
+
+#checking if there are any na values or missing values in the dataset
+sum(is.na(data_subset))
+
+for (i in colnames(data_load)){
+  print(paste0('For column ', i))
+  c<- data_load[,i]
+  print(paste0('Mean is:',mean(c)))
+  print(paste0('Standard deviation is:' ,sd(c)))
+}
+
+#There are no missing values in the dataframe
+hclust_data<- scale(data_subset)
+head(hclust_data)
+
+
+for (i in colnames(hclust_data)){
+  print(paste0('For column ', i))
+  c<- hclust_data[,i]
+  print(paste0('Mean is:',round(mean(c), digits = 0)))
+  print(paste0('Standard deviation is:' ,sd(c)))
+}
+
+```
+
+### Creating dissimilarity values to feed into hclust
+
+```{r}
+#Euclidean distance 
+dist_e <- dist(hclust_data, method = 'minkowski', p=2)
+
+#Hierarchical clustering using complete linkage
+hc1 <- hclust(dist_e, method = 'complete')
+hc1
+
+groups_hclust_complete <- cutree(hc1, k=3)
+data_w_hclust_labels<- cbind(hclust_data, groups_hclust_complete)
+head(data_w_hclust_labels)
+#plotting the dendogram
+plot(hc1, cex = 0.1, hang = -1, main='Dendrogram using complete method and euclidean diatance')
+rect.hclust(hc1, k=4)
+
+```
+Using diana to hierarchically cluster
+```{r}
+hc2 <- diana(hclust_data)
+
+hc2$dc
+
+groups_hclust_diana <- cutree(hc2, k=3)
+data_w_hclust_labels<- cbind(data_w_hclust_labels, groups_hclust_diana)
+
+#plotting dendrogram
+pltree(hc2, cex = 0.6, hang = -1, main = 'Dendrogram using DIANA')
+rect.hclust(hc2, k=4)
+
+
+
+```
+
+Using manhattan distance to hclust
+
+```{r}
+dist_m <- dist(hclust_data, method = 'manhattan')
+hclust_ward <- hclust(dist_m, method = 'ward.D2')
+
+groups_ward <- cutree(hclust_ward, k=3)
+data_w_hclust_labels <- cbind(data_w_hclust_labels, groups_ward)
+
+head(data_w_hclust_labels)
+
+plot(hclust_ward, cex = 0.1, hang = -1, main = 'Dendrogram for ward method with manhattan distance')
+rect.hclust(hclust_ward, k=4)
+
+```
+
+Using cosine similarity as distance
+
+```{r}
+mat_data <- as.matrix(t(hclust_data))
+(mat_data)
+
+
+
+##Using Dr.Gate's code as reference for creating my own cosine distance metric
+cosine_self_made <- 1-crossprod(mat_data)/ (sqrt(colSums(mat_data^2)%*%t(colSums(mat_data^2))))
+cosine_dist <- as.dist(cosine_self_made)
+Hclust_cosine_ward <- hclust(cosine_dist, method = 'ward.D')
+plot(Hclust_cosine_ward, cex  =0.7, hang = -1, main = 'Hierarchical clustering using cosine similarity')
+rect.hclust(Hclust_cosine_ward, k=3)
+
+
+#hclust_cos <- hclust(cosine_dist, method = 'ward.D')
+#plot(hclust_cos, cex = 0.7, hang = -1, main = 'Hclust using cosine similarity')
+
+hclust_cos_single <- hclust(cosine_dist, method = 'single')
+plot(hclust_cos_single, cex = 0.7, hang = -1, main = 'Hclust with cosine similarity and single method')
+rect.hclust(hclust_cos_single, k = 4)
+
+
+```
+
+###Checking which method is best to use
+```{r}
+methods <- c('average', 'single', 'complete', 'ward')
+names(methods) <-  c('average', 'single', 'complete', 'ward')
+
+method_ac_measure<- function(x) {
+  cluster::agnes(hclust_data, method = x)$ac
+}
+
+(purrr::map_dbl(methods, method_ac_measure))
+
+```
+Single has the lowest agglomerative coefficeint(ac), this means the clusters via single are tight and well formed. A higher ac value means that the clusters are loosely formed. 
+
+```{r}
+#Using method single with euclidean distance
+hcl_single_e <- hclust(dist_e, method = 'single')
+plot(hcl_single_e, cex = 0.1, hang = -1, main = 'Dendrogram with single method and Euclidean distance', cex.main = 0.5)
+
+groups_single_e <- cutree(hcl_single_e, k=3)
+data_w_hclust_labels<- cbind(data_w_hclust_labels, groups_single_e)
+
+
+
+#Using method single with manhattan distance
+hcl_single_m <- hclust(dist_m, method = 'single')
+plot(hcl_single_m, cex = 0.1, hang = -1, main = 'Dendrogram with single method and Manhattan distance', cex.main = 0.5)
+
+hcl_single_m$order
+groups_single_m <- cutree(hcl_single_m, k=3)
+data_w_hclust_labels<- cbind(data_w_hclust_labels, groups_single_m)
+
+
+```
+
+
+###Making a table to compare the labels with the results of the hierarchical clustering
+
+Please know that clustering is an unsupervised learning model. I am not trying to use it for accuracy. I'm comparing the results just for my curiosity to understand how hclust clusters.
+
+
+```{r}
+colnames(data_w_hclust_labels)
+
+tab_complete <- table()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

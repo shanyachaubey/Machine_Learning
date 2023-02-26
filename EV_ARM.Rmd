@@ -1,0 +1,90 @@
+---
+title: "EV_ARM"
+author: "Shanya Chaubey"
+date: "2023-02-24"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo = TRUE}
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\CSCI 5622 Machine Learning\\CSCI5662 Project')
+```
+
+###Load libraries
+First step to perform ARM is to load the essential libraries
+
+```{r}
+
+library(arules)
+library(arulesViz)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+```
+
+### Load data
+
+```{r}
+description <- read.transactions('ARM_description_list.csv', rm.duplicate  =FALSE, sep = ',', cols = NULL)
+inspect(description)
+
+```
+###Applying apriori and trimming useless rules
+
+```{r}
+
+d_rules <- arules::apriori(description, parameter = list(support = 0.02, confidence = 0.4, minlen = 2))
+inspect(d_rules)
+
+```
+
+###Sorting rules 
+
+```{r}
+plot(itemFrequencyPlot(description, topN = 10, type = 'absolute'), main = 'Item fre')
+
+```
+
+```{r}
+s_sorted_rules <- sort(d_rules, by = 'support', decreasing = TRUE)
+s_s <- inspect(s_sorted_rules[1:15])
+
+c_sorted_rules <- sort(d_rules, by = 'confidence', decreasing = TRUE)
+c_s <- inspect(c_sorted_rules[1:15])
+l_sorted_rules <- sort(d_rules, by = 'lift', decreasing = TRUE)
+l_s <- inspect(l_sorted_rules[1:15])
+
+```
+
+```{r}
+ev_rules <- apriori(description, parameter = list(support = 0.02, confidence = 0.4, minlen = 2), appearance = list(default = 'rhs', lhs = 'vehicle'), control = list(verbose = FALSE))
+
+inspect(ev_rules)
+```
+
+###Plotting rules
+```{r}
+conf_plot <- plot(c_sorted_rules[1:10], method = 'graph', engine = 'htmlwidget')
+conf_plot
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
