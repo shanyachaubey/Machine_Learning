@@ -1,0 +1,159 @@
+---
+title: "EV_NB"
+author: "Shanya Chaubey"
+date: "2023-03-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = 'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\CSCI 5622 Machine Learning\\CSCI5662 Project', echo = TRUE)
+```
+
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(naivebayes)
+library(caret)
+library(e1071)
+library(stats)
+library(caTools)
+library(corrplot)
+
+```
+
+
+```{r}
+df <- read.csv('EV_data_clean.csv')
+head(df)
+
+(cols <- colnames(df))
+str(df)
+cols_wo_label <- c("Percentage_pop_with_bachelors","Adults.19.25", "Adults.26.34", "Adults.35.54", "num_jobs_tot","EnergyC_addunit", "Av_temperature", "Median_income", "GDP", "Tot_vehicle", "Elec_price")
+
+label <- data.frame(df$Label_R)
+(label)
+```
+```{r}
+test <- as.data.frame(c(1,2,3,4,2,3,3,4,3,2,2,2,2,5,6,66,7))
+
+colnames(test) <- c("test_Col")
+head(test)
+
+disc <- as.data.frame(discretize(test$test_Col, method = 'interval', breaks = 3, labels = c("low", "medium", "high")))
+colnames(disc) <- "disc_col"
+disc
+```
+```{r}
+
+#hist(df$Percentage_pop_with_bachelors, breaks =20, main = "Data")
+for (i in cols_wo_label){
+  print(i)
+  val <- df[[i]]
+  hist(val, breaks =20, main = paste(i,"Data"))
+}
+
+
+```
+
+
+```{r}
+num_df <- df%>% select(-c('State', 'Key', 'Label_py', 'Label', 'Year'))
+head(num_df)
+                       
+corrplot(cor(num_df), tl.cex = 0.5)
+
+```
+
+Adding discretized columns
+
+```{r}
+new_df <- as.data.frame(df$Key)
+head(new_df)
+for (i in cols_wo_label){
+  lab1 <- paste("Low", as.character(i))
+  lab2 <- paste("Medium", as.character(i))
+  lab3 <- paste("High", as.character(i))
+  labels = c(lab1, lab2, lab3)
+  print(labels)
+  new_col_name <- paste(as.character(i), "disc")
+  disc_col <- as.data.frame(discretize(df[[i]], method = "interval", breaks = 3, labels = labels))
+  new_df[,ncol(new_df)+1] <- disc_col
+  colnames(new_df)[ncol(new_df)] <- new_col_name
+  print('here')
+  
+}
+
+new_df[,ncol(new_df)+1] <- label
+head(new_df)
+colnames(new_df)[ncol(new_df)] <- "label"
+new_df$label <- as_factor(new_df$label)
+
+head(new_df)
+
+write.csv(new_df,'C:\\Users\\chaub\\Documents\\CU_Boulder\\Spring 2023\\CSCI 5622 Machine Learning\\CSCI5662 Project\\EV_data_discretized.csv', row.names = FALSE)
+
+```
+
+Checking correlation between discretized variables
+
+```{r}
+(cor_plot <- corrplot(cor(new_df)))
+
+```
+
+
+
+```{r}
+set.seed(1234)
+sample <- sample.split(new_df$label, SplitRatio = 0.7)
+train <- subset(new_df, sample == TRUE) %>% select(-c('df$Key'))
+head(train)
+test <- subset(new_df, sample ==FALSE) %>% select(-c('df$Key'))
+
+nb <- naive_bayes(label~. , data = train, laplace = 1)
+(nb)
+
+predict_nb <- predict(nb, test)
+predict_nb
+tab <- table(predict_nb, test$label)
+tab
+cm <- confusionMatrix(data = predict_nb, reference = test$label)
+cm
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
